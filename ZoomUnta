@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ZoomUnta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; padding: 10px; }
+    input, textarea, button { width: 100%; margin: 5px 0; padding: 10px; }
+    .post { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+    h1 span { font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<h1>
+  <span style="color: blue;">Zoom</span><span style="color: orange;">Unta</span>
+</h1>
+
+<input id="name" placeholder="Your Name">
+<textarea id="text" placeholder="Write something..."></textarea>
+<button onclick="post()">Post</button>
+
+<div id="posts"></div>
+
+<script>
+  // Load posts from local storage when page loads
+  let posts = JSON.parse(localStorage.getItem("zoomunta_posts") || "[]");
+  displayPosts();
+
+  function post() {
+    let name = document.getElementById("name").value.trim();
+    let text = document.getElementById("text").value.trim();
+    if(!name || !text) return alert("Name and post cannot be empty!");
+
+    let postObj = {name: name, text: text};
+    posts.push(postObj);
+    localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
+    displayPosts();
+
+    document.getElementById("text").value = "";
+  }
+
+  function displayPosts() {
+    let postsDiv = document.getElementById("posts");
+    postsDiv.innerHTML = "";
+    for(let i = posts.length - 1; i >= 0; i--) {
+      let post = posts[i];
+      postsDiv.innerHTML += `
+        <div class="post">
+          <strong>${post.name}</strong>
+          <p>${post.text}</p>
+        </div>
+      `;
+    }
+  }
+</script>
+
+</body>
+</html>
