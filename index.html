@@ -2,11 +2,81 @@
 <html>
 <head>
   <title>ZoomUnta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 15px;
+    }
+    h1 {
+      text-align: center;
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #000;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    .post {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 15px;
+    }
+  </style>
 </head>
+
 <body>
-  <h1>
-    <span style="color: blue;">Zoom</span><span style="color: orange;">Unta</span>
-  </h1>
-  <p>Welcome to ZoomUnta — a growing social platform.</p>
+
+<h1>
+  <span style="color: blue;">Zoom</span><span style="color: orange;">Unta</span>
+</h1>
+
+<input id="username" placeholder="Your name">
+<textarea id="postText" placeholder="Write something..."></textarea>
+<button onclick="addPost()">Post</button>
+
+<div id="feed"></div>
+
+<script>
+  let posts = JSON.parse(localStorage.getItem("zoomunta_posts") || "[]");
+  showPosts();
+
+  function addPost() {
+    let name = document.getElementById("username").value.trim();
+    let text = document.getElementById("postText").value.trim();
+
+    if (name === "" || text === "") {
+      alert("Please enter name and post");
+      return;
+    }
+
+    posts.unshift({ name, text });
+    localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
+
+    document.getElementById("postText").value = "";
+    showPosts();
+  }
+
+  function showPosts() {
+    let feed = document.getElementById("feed");
+    feed.innerHTML = "";
+
+    posts.forEach(post => {
+      feed.innerHTML += `
+        <div class="post">
+          <strong>${post.name}</strong>
+          <p>${post.text}</p>
+        </div>
+      `;
+    });
+  }
+</script>
+
 </body>
 </html>
