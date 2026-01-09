@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -29,6 +30,27 @@
       margin-top: 15px;
     }
   </style>
+
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js"></script>
+  <!-- Firebase Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js"></script>
+  <!-- Firebase configuration -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQXx4AgjmjFhWTQEGZFJ8gyjhrGG36T04",
+      authDomain: "zoomunta.firebaseapp.com",
+      projectId: "zoomunta",
+      databaseURL: "https://zoomunta-default-rtdb.firebaseio.com",
+      storageBucket: "zoomunta.appspot.com",
+      messagingSenderId: "490604667032",
+      appId: "1:490604667032:web:088173f78346086d14f0ed"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+  </script>
 </head>
 
 <body>
@@ -44,39 +66,43 @@
 <div id="feed"></div>
 
 <script>
-  let posts = JSON.parse(localStorage.getItem("zoomunta_posts") || "[]");
-  showPosts();
+  const feedRef = database.ref('posts'); // Firebase "posts" node
 
+  // Display posts in real-time
+  feedRef.on('value', (snapshot) => {
+    const feed = document.getElementById("feed");
+    feed.innerHTML = ""; // Clear old posts
+    const data = snapshot.val();
+    if (data) {
+      const postsArray = Object.values(data).reverse(); // newest first
+      postsArray.forEach(post => {
+        feed.innerHTML += `
+          <div class="post">
+            <strong>${post.name}</strong>
+            <p>${post.text}</p>
+          </div>
+        `;
+      });
+    }
+  });
+
+  // Add new post to Firebase
   function addPost() {
-    let name = document.getElementById("username").value.trim();
-    let text = document.getElementById("postText").value.trim();
+    const name = document.getElementById("username").value.trim();
+    const text = document.getElementById("postText").value.trim();
 
     if (name === "" || text === "") {
       alert("Please enter name and post");
       return;
     }
 
-    posts.unshift({ name, text });
-    localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
-
+    feedRef.push({ name, text }); // Save to Firebase
     document.getElementById("postText").value = "";
-    showPosts();
-  }
-
-  function showPosts() {
-    let feed = document.getElementById("feed");
-    feed.innerHTML = "";
-
-    posts.forEach(post => {
-      feed.innerHTML += `
-        <div class="post">
-          <strong>${post.name}</strong>
-          <p>${post.text}</p>
-        </div>
-      `;
-    });
   }
 </script>
 
 </body>
 </html>
+
+
+    
