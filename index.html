@@ -15,85 +15,105 @@ body {
 header {
     background: #1877f2;
     color: white;
-    padding: 15px;
-    font-size: 24px;
+    padding: 12px;
+    font-size: 22px;
     font-weight: bold;
     text-align: center;
 }
 
 .post-box {
     background: white;
-    padding: 15px;
-    margin: 10px auto;
-    border-radius: 10px;
-    max-width: 600px;
+    padding: 12px;
+    margin: 10px;
+    border-radius: 8px;
 }
 
 .post-box input,
 .post-box textarea {
     width: 100%;
-    margin-bottom: 10px;
-    padding: 10px;
+    margin-bottom: 8px;
+    padding: 8px;
     border-radius: 6px;
     border: 1px solid #ccc;
 }
 
 .post-box button {
-    background: black;
+    background: #1877f2;
     color: white;
     border: none;
     padding: 10px;
     width: 100%;
     border-radius: 6px;
     font-size: 16px;
-    cursor: pointer;
 }
 
 .feed {
-    max-width: 600px;
-    margin: 10px auto;
+    margin: 10px;
 }
 
 .post {
     background: white;
     padding: 12px;
-    border-radius: 10px;
+    border-radius: 8px;
     margin-bottom: 10px;
+}
+
+.actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 10px;
+}
+
+.actions button {
+    flex: 1;
+    background: #eee;
+    border: none;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <span style="color:blue">Zoom</span><span style="color:orange">Unta</span>
-</header>
+<header>ZoomUnta</header>
 
 <div class="post-box">
-    <input id="name" placeholder="Your name">
-    <textarea id="message" placeholder="Write something..."></textarea>
+    <input type="text" id="name" placeholder="Your name">
+    <textarea id="message" placeholder="What's on your mind?"></textarea>
     <button onclick="addPost()">Post</button>
 </div>
 
 <div class="feed" id="feed"></div>
 
 <script>
-let posts = JSON.parse(localStorage.getItem("zoomunta_posts") || "[]");
+let posts = JSON.parse(localStorage.getItem("zoomunta_posts")) || [];
+
+// Load saved posts on startup
 renderPosts();
+
+function savePosts() {
+    localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
+}
 
 function addPost() {
     const name = document.getElementById("name").value.trim();
     const message = document.getElementById("message").value.trim();
 
-    if (!name || !message) {
+    if (name === "" || message === "") {
         alert("Please enter name and message");
         return;
     }
 
-    const post = { name, message };
-    posts.unshift(post);
+    posts.unshift({
+        name,
+        message,
+        echo: 0,
+        support: 0
+    });
 
-    localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
+    savePosts();
     renderPosts();
 
     document.getElementById("name").value = "";
@@ -104,14 +124,38 @@ function renderPosts() {
     const feed = document.getElementById("feed");
     feed.innerHTML = "";
 
-    posts.forEach(post => {
-        feed.innerHTML += `
-            <div class="post">
-                <strong>${post.name}</strong>
-                <p>${post.message}</p>
+    posts.forEach((post, index) => {
+        const postDiv = document.createElement("div");
+        postDiv.className = "post";
+
+        postDiv.innerHTML = `
+            <h4>${post.name}</h4>
+            <p>${post.message}</p>
+
+            <div class="actions">
+                <button onclick="echoPost(${index})">
+                    🔁 Echo (${post.echo})
+                </button>
+                <button onclick="supportPost(${index})">
+                    🤝 Support (${post.support})
+                </button>
             </div>
         `;
+
+        feed.appendChild(postDiv);
     });
+}
+
+function echoPost(index) {
+    posts[index].echo++;
+    savePosts();
+    renderPosts();
+}
+
+function supportPost(index) {
+    posts[index].support++;
+    savePosts();
+    renderPosts();
 }
 </script>
 
