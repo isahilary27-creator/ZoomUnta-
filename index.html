@@ -2,134 +2,214 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ZoomUnta</title>
+<title><span style="color:blue">Zoom</span><span style="color:orange">Unta</span></title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-body { margin:0; font-family: Arial,sans-serif; background: #f0f2f5; }
-header { background: #1877f2; color:white; padding:12px; font-size:24px; text-align:center; }
-section { margin:10px; background:white; padding:12px; border-radius:8px; }
-input, textarea, button { width:100%; margin:5px 0; padding:8px; border-radius:6px; border:1px solid #ccc; box-sizing:border-box; }
-button { background:#1877f2; color:white; border:none; font-size:16px; cursor:pointer; }
-.feed .post { background:white; padding:10px; margin-bottom:10px; border-radius:8px; display:flex; align-items:flex-start; gap:10px; }
-.feed .post img.profile { width:40px; height:40px; border-radius:50%; }
-.feed .post img.post-img { max-width:100%; border-radius:6px; margin-top:6px; }
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f0f2f5;
+}
+
+/* HEADER */
+header {
+    background: #1877f2;
+    color: white;
+    padding: 12px;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* PROFILE SECTION */
+.profile-box {
+    background: white;
+    padding: 12px;
+    margin: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+.profile-box input {
+    width: 80%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+.profile-box input[type="file"] {
+    width: 80%;
+}
+.profile-box button {
+    background: #1877f2;
+    color: white;
+    border: none;
+    padding: 10px;
+    width: 50%;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+/* POST BOX */
+.post-box {
+    background: white;
+    padding: 12px;
+    margin: 10px;
+    border-radius: 8px;
+}
+.post-box textarea {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+.post-box input[type="file"] {
+    margin-bottom: 8px;
+}
+.post-box button {
+    background: #1877f2;
+    color: white;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+/* FEED */
+.feed {
+    margin: 10px;
+}
+.post {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+.post img {
+    max-width: 100%;
+    margin-top: 8px;
+    border-radius: 6px;
+}
+.post h4 {
+    margin: 0;
+}
+.post p {
+    margin-top: 6px;
+}
 </style>
 
-<!-- Firebase SDKs -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBQXx4AgjmjFhWTQEGZFJ8gyjhrGG36T04",
-  authDomain: "zoomunta.firebaseapp.com",
-  projectId: "zoomunta",
-  databaseURL: "https://zoomunta-default-rtdb.firebaseio.com",
-  storageBucket: "zoomunta.appspot.com",
-  messagingSenderId: "490604667032",
-  appId: "1:490604667032:web:088173f78346086d14f0ed"
-};
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const storage = firebase.storage();
-
-// Global user variable
-let currentUser = null;
-</script>
-</head>
-
-<body>
-<header><span style="color:#00d4ff;">Zoom</span><span style="color:#ffa500;">Unta</span></header>
-
-<!-- PROFILE CREATION -->
-<section id="profile-section">
-  <h3>Create Profile</h3>
-  <input type="text" id="profile-name" placeholder="Your name">
-  <input type="file" id="profile-pic">
-  <button onclick="createProfile()">Create Profile</button>
-</section>
-
-<!-- POST BOX -->
-<section id="post-section" style="display:none;">
-  <textarea id="post-text" placeholder="What's on your mind?"></textarea>
-  <input type="file" id="post-image">
-  <button onclick="addPost()">Post</button>
-</section>
-
-<!-- FEED -->
-<section class="feed" id="feed"></section>
-
-<script>
-// ---------- PROFILE ----------
-function createProfile() {
-  const name = document.getElementById("profile-name").value.trim();
-  const file = document.getElementById("profile-pic").files[0];
-
-  if (!name || !file) { alert("Enter name and select picture"); return; }
-
-  const storageRef = storage.ref('profiles/' + Date.now() + '_' + file.name);
-  storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
-    currentUser = { name: name, profilePic: url };
-    alert("Profile created!");
-    document.getElementById("profile-section").style.display = "none";
-    document.getElementById("post-section").style.display = "block";
-    loadPosts(); // Load existing posts
-  });
-}
-
-// ---------- POSTS ----------
-function addPost() {
-  if (!currentUser) { alert("Create profile first"); return; }
-
-  const text = document.getElementById("post-text").value.trim();
-  const imageFile = document.getElementById("post-image").files[0];
-
-  const postData = {
-    userName: currentUser.name,
-    userPic: currentUser.profilePic,
-    text: text || "",
-    timestamp: Date.now()
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQXx4AgjmjFhWTQEGZFJ8gyjhrGG36T04",
+    authDomain: "zoomunta.firebaseapp.com",
+    projectId: "zoomunta",
+    databaseURL: "https://zoomunta-default-rtdb.firebaseio.com",
+    storageBucket: "zoomunta.appspot.com",
+    messagingSenderId: "490604667032",
+    appId: "1:490604667032:web:088173f78346086d14f0ed"
   };
 
-  if (imageFile) {
-    const storageRef = storage.ref('posts/' + Date.now() + '_' + imageFile.name);
-    storageRef.put(imageFile).then(snap => snap.ref.getDownloadURL()).then(url => {
-      postData.imageURL = url;
-      db.ref('posts').push(postData);
-    });
-  } else {
-    db.ref('posts').push(postData);
+  const app = firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const storage = firebase.storage();
+
+  let currentProfile = {name: "", photoUrl: ""};
+
+  function createProfile() {
+    const name = document.getElementById("profileName").value.trim();
+    const photo = document.getElementById("profilePic").files[0];
+
+    if (!name) { alert("Enter your name"); return; }
+
+    if (photo) {
+      const storageRef = storage.ref('profiles/' + photo.name);
+      storageRef.put(photo).then(snapshot => {
+        snapshot.ref.getDownloadURL().then(url => {
+          currentProfile = {name: name, photoUrl: url};
+          alert("Profile created!");
+          document.getElementById("profileBox").style.display = "none";
+          document.getElementById("postBox").style.display = "block";
+        });
+      });
+    } else {
+      currentProfile = {name: name, photoUrl: ""};
+      alert("Profile created!");
+      document.getElementById("profileBox").style.display = "none";
+      document.getElementById("postBox").style.display = "block";
+    }
   }
 
-  document.getElementById("post-text").value = "";
-  document.getElementById("post-image").value = "";
-}
+  function addPost() {
+    const message = document.getElementById("postText").value.trim();
+    const imageFile = document.getElementById("postImage").files[0];
 
-// ---------- LOAD FEED ----------
-function loadPosts() {
-  db.ref('posts').on('value', snapshot => {
+    if (!message && !imageFile) { alert("Write a message or select an image"); return; }
+
+    const postsRef = database.ref('posts');
+    if (imageFile) {
+      const imageRef = storage.ref('posts/' + imageFile.name);
+      imageRef.put(imageFile).then(snapshot => {
+        snapshot.ref.getDownloadURL().then(url => {
+          postsRef.push({name: currentProfile.name, photoUrl: currentProfile.photoUrl, message: message, imageUrl: url});
+          document.getElementById("postText").value = "";
+          document.getElementById("postImage").value = "";
+        });
+      });
+    } else {
+      postsRef.push({name: currentProfile.name, photoUrl: currentProfile.photoUrl, message: message});
+      document.getElementById("postText").value = "";
+    }
+  }
+
+  const postsRef = database.ref('posts');
+  postsRef.on('value', snapshot => {
     const feed = document.getElementById("feed");
     feed.innerHTML = "";
-    const posts = snapshot.val();
-    if (posts) {
-      const arr = Object.values(posts).sort((a,b)=>b.timestamp-a.timestamp);
-      arr.forEach(p => {
-        const div = document.createElement("div");
-        div.className = "post";
-        div.innerHTML = `
-          <img class="profile" src="${p.userPic}" alt="profile">
-          <div>
-            <strong>${p.userName}</strong>
-            <p>${p.text}</p>
-            ${p.imageURL ? `<img class="post-img" src="${p.imageURL}">` : ""}
-          </div>
+    const data = snapshot.val();
+    if (data) {
+      const postsArray = Object.values(data).reverse();
+      postsArray.forEach(post => {
+        const postDiv = document.createElement("div");
+        postDiv.className = "post";
+        postDiv.innerHTML = `
+          <h4>${post.name}</h4>
+          ${post.photoUrl ? `<img src="${post.photoUrl}" alt="Profile Picture">` : ''}
+          ${post.message ? `<p>${post.message}</p>` : ''}
+          ${post.imageUrl ? `<img src="${post.imageUrl}" alt="Post Image">` : ''}
         `;
-        feed.appendChild(div);
+        feed.appendChild(postDiv);
       });
     }
   });
-}
 </script>
+</head>
+<body>
+
+<header>ZoomUnta</header>
+
+<!-- CREATE PROFILE -->
+<div class="profile-box" id="profileBox">
+  <input type="text" id="profileName" placeholder="Enter your name"><br>
+  <input type="file" id="profilePic" accept="image/*"><br>
+  <button onclick="createProfile()">Create Profile</button>
+</div>
+
+<!-- POST BOX -->
+<div class="post-box" id="postBox" style="display:none;">
+  <textarea id="postText" placeholder="What's on your mind?"></textarea><br>
+  <input type="file" id="postImage" accept="image/*"><br>
+  <button onclick="addPost()">Post</button>
+</div>
+
+<!-- FEED -->
+<div class="feed" id="feed"></div>
+
 </body>
 </html>
