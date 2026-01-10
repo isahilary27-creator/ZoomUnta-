@@ -12,7 +12,6 @@ body {
     background: #f0f2f5;
 }
 
-/* HEADER */
 header {
     background: #1877f2;
     color: white;
@@ -22,7 +21,6 @@ header {
     text-align: center;
 }
 
-/* PROFILE CREATION */
 .profile-box, .post-box {
     background: white;
     padding: 12px;
@@ -41,7 +39,8 @@ header {
 }
 
 .profile-box button, 
-.post-box button {
+.post-box button, 
+.post-box .record-btn {
     background: #1877f2;
     color: white;
     border: none;
@@ -49,9 +48,9 @@ header {
     width: 100%;
     border-radius: 6px;
     font-size: 16px;
+    margin-top: 4px;
 }
 
-/* FEED */
 .feed {
     margin: 10px;
 }
@@ -63,7 +62,7 @@ header {
     margin-bottom: 10px;
 }
 
-.post img {
+.post img, .post audio {
     max-width: 100%;
     border-radius: 6px;
     margin-top: 6px;
@@ -83,7 +82,6 @@ header {
 
 <header>Zoom<span style="color: orange;">Unta</span></header>
 
-<!-- PROFILE CREATION -->
 <div class="profile-box" id="profileBox">
     <h3>Create Profile</h3>
     <input type="text" id="profileName" placeholder="Enter your name">
@@ -91,19 +89,19 @@ header {
     <button onclick="createProfile()">Create Profile</button>
 </div>
 
-<!-- POST BOX (hidden until profile is created) -->
 <div class="post-box" id="postBox" style="display:none;">
     <input type="text" id="postName" readonly>
     <textarea id="postMessage" placeholder="What's on your mind?"></textarea>
     <input type="file" id="postImage">
     <button onclick="addPost()">Post</button>
+    <button class="record-btn" id="recordBtn">🎤 Record Voice</button>
 </div>
 
 <div class="feed" id="feed"></div>
 
 <script>
-// ===== PROFILE MANAGEMENT =====
 let currentProfile = JSON.parse(localStorage.getItem("zoomunta_profile")) || null;
+let posts = JSON.parse(localStorage.getItem("zoomunta_posts")) || [];
 
 function showProfile() {
     if(currentProfile){
@@ -125,16 +123,13 @@ function createProfile(){
     if(file){
         const reader = new FileReader();
         reader.onload = function(e){
-            currentProfile = {
-                name: name,
-                pic: e.target.result
-            };
+            currentProfile = {name:name, pic:e.target.result};
             localStorage.setItem("zoomunta_profile", JSON.stringify(currentProfile));
             showProfile();
         };
         reader.readAsDataURL(file);
     } else {
-        currentProfile = {name: name, pic: null};
+        currentProfile = {name:name, pic:null};
         localStorage.setItem("zoomunta_profile", JSON.stringify(currentProfile));
         showProfile();
     }
@@ -143,8 +138,6 @@ function createProfile(){
 showProfile();
 
 // ===== POSTS MANAGEMENT =====
-let posts = JSON.parse(localStorage.getItem("zoomunta_posts")) || [];
-
 function showPosts(){
     const feed = document.getElementById("feed");
     feed.innerHTML = "";
@@ -155,9 +148,9 @@ function showPosts(){
         postDiv.innerHTML = `
             <h4>${post.name}</h4>
             ${post.pic ? `<img src="${post.pic}">` : ''}
-            <p>${post.message}</p>
+            ${post.message ? `<p>${post.message}</p>` : ''}
+            ${post.audio ? `<audio controls src="${post.audio}"></audio>` : ''}
         `;
-
         feed.appendChild(postDiv);
     });
 }
@@ -177,7 +170,8 @@ function addPost(){
             const newPost = {
                 name: currentProfile.name,
                 pic: e.target.result,
-                message: message
+                message: message,
+                audio: null
             };
             posts.push(newPost);
             localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
@@ -190,7 +184,8 @@ function addPost(){
         const newPost = {
             name: currentProfile.name,
             pic: null,
-            message: message
+            message: message,
+            audio: null
         };
         posts.push(newPost);
         localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
@@ -198,6 +193,42 @@ function addPost(){
         document.getElementById("postMessage").value = "";
     }
 }
+
+// ===== VOICE RECORDER =====
+let mediaRecorder;
+let audioChunks = [];
+
+const recordBtn = document.getElementById("recordBtn");
+recordBtn.onclick = async function() {
+    if(recordBtn.innerText === "🎤 Record Voice"){
+        if(!navigator.mediaDevices) return alert("Your browser does not support recording");
+        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.start();
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, {type:'audio/mp3'});
+            const reader = new FileReader();
+            reader.onload = e => {
+                const newPost = {
+                    name: currentProfile.name,
+                    pic: null,
+                    message: null,
+                    audio: e.target.result
+                };
+                posts.push(newPost);
+                localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
+                showPosts();
+            };
+            reader.readAsDataURL(audioBlob);
+        };
+        recordBtn.innerText = "⏹ Stop Recording";
+    } else {
+        mediaRecorder.stop();
+        recordBtn.innerText = "🎤 Record Voice";
+    }
+};
 
 showPosts();
 </script>
