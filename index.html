@@ -5,180 +5,131 @@
 <title>ZoomUnta</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f0f2f5;
-}
-
-/* HEADER */
-header {
-    background: #1877f2;
-    color: white;
-    padding: 12px;
-    font-size: 22px;
-    font-weight: bold;
-    text-align: center;
-}
-
-/* POST BOX */
-.post-box {
-    background: white;
-    padding: 12px;
-    margin: 10px;
-    border-radius: 8px;
-}
-
-.post-box input,
-.post-box textarea {
-    width: 100%;
-    margin-bottom: 8px;
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-}
-
-.post-box button {
-    background: #1877f2;
-    color: white;
-    border: none;
-    padding: 10px;
-    width: 100%;
-    border-radius: 6px;
-    font-size: 16px;
-}
-
-/* FEED */
-.feed {
-    margin: 10px;
-}
-
-.post {
-    background: white;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
-
-.post h4 {
-    margin: 0;
-}
-
-.post p {
-    margin-top: 6px;
-}
-
-.post img {
-    max-width: 100%;
-    border-radius: 6px;
-    margin-top: 6px;
-}
-
-audio {
-    margin-top: 6px;
-    width: 100%;
-}
+body { margin:0; font-family: Arial,sans-serif; background: #f0f2f5; }
+header { background: #1877f2; color:white; padding:12px; font-size:24px; text-align:center; }
+section { margin:10px; background:white; padding:12px; border-radius:8px; }
+input, textarea, button { width:100%; margin:5px 0; padding:8px; border-radius:6px; border:1px solid #ccc; box-sizing:border-box; }
+button { background:#1877f2; color:white; border:none; font-size:16px; cursor:pointer; }
+.feed .post { background:white; padding:10px; margin-bottom:10px; border-radius:8px; display:flex; align-items:flex-start; gap:10px; }
+.feed .post img.profile { width:40px; height:40px; border-radius:50%; }
+.feed .post img.post-img { max-width:100%; border-radius:6px; margin-top:6px; }
 </style>
-</head>
 
-<body>
-
-<header>ZoomUnta</header>
-
-<div class="post-box">
-    <input type="text" id="name" placeholder="Your name">
-    <textarea id="message" placeholder="What's on your mind?"></textarea>
-    <input type="file" id="image" accept="image/*">
-    <input type="file" id="audio" accept="audio/*">
-    <button onclick="addPost()">Post</button>
-</div>
-
-<div class="feed" id="feed"></div>
-
-<!-- Firebase SDK -->
+<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js"></script>
 
 <script>
 const firebaseConfig = {
-    apiKey: "AIzaSyBQXx4AgjmjFhWTQEGZFJ8gyjhrGG36T04",
-    authDomain: "zoomunta.firebaseapp.com",
-    projectId: "zoomunta",
-    databaseURL: "https://zoomunta-default-rtdb.firebaseio.com",
-    storageBucket: "zoomunta.appspot.com",
-    messagingSenderId: "490604667032",
-    appId: "1:490604667032:web:088173f78346086d14f0ed"
+  apiKey: "AIzaSyBQXx4AgjmjFhWTQEGZFJ8gyjhrGG36T04",
+  authDomain: "zoomunta.firebaseapp.com",
+  projectId: "zoomunta",
+  databaseURL: "https://zoomunta-default-rtdb.firebaseio.com",
+  storageBucket: "zoomunta.appspot.com",
+  messagingSenderId: "490604667032",
+  appId: "1:490604667032:web:088173f78346086d14f0ed"
 };
 const app = firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+const db = firebase.database();
 const storage = firebase.storage();
 
-// References
-const feedRef = database.ref('posts');
-const adminRef = database.ref('adminMessages');
+// Global user variable
+let currentUser = null;
+</script>
+</head>
 
-// Display posts in real-time
-feedRef.on('value', snapshot => {
+<body>
+<header><span style="color:#00d4ff;">Zoom</span><span style="color:#ffa500;">Unta</span></header>
+
+<!-- PROFILE CREATION -->
+<section id="profile-section">
+  <h3>Create Profile</h3>
+  <input type="text" id="profile-name" placeholder="Your name">
+  <input type="file" id="profile-pic">
+  <button onclick="createProfile()">Create Profile</button>
+</section>
+
+<!-- POST BOX -->
+<section id="post-section" style="display:none;">
+  <textarea id="post-text" placeholder="What's on your mind?"></textarea>
+  <input type="file" id="post-image">
+  <button onclick="addPost()">Post</button>
+</section>
+
+<!-- FEED -->
+<section class="feed" id="feed"></section>
+
+<script>
+// ---------- PROFILE ----------
+function createProfile() {
+  const name = document.getElementById("profile-name").value.trim();
+  const file = document.getElementById("profile-pic").files[0];
+
+  if (!name || !file) { alert("Enter name and select picture"); return; }
+
+  const storageRef = storage.ref('profiles/' + Date.now() + '_' + file.name);
+  storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL()).then(url => {
+    currentUser = { name: name, profilePic: url };
+    alert("Profile created!");
+    document.getElementById("profile-section").style.display = "none";
+    document.getElementById("post-section").style.display = "block";
+    loadPosts(); // Load existing posts
+  });
+}
+
+// ---------- POSTS ----------
+function addPost() {
+  if (!currentUser) { alert("Create profile first"); return; }
+
+  const text = document.getElementById("post-text").value.trim();
+  const imageFile = document.getElementById("post-image").files[0];
+
+  const postData = {
+    userName: currentUser.name,
+    userPic: currentUser.profilePic,
+    text: text || "",
+    timestamp: Date.now()
+  };
+
+  if (imageFile) {
+    const storageRef = storage.ref('posts/' + Date.now() + '_' + imageFile.name);
+    storageRef.put(imageFile).then(snap => snap.ref.getDownloadURL()).then(url => {
+      postData.imageURL = url;
+      db.ref('posts').push(postData);
+    });
+  } else {
+    db.ref('posts').push(postData);
+  }
+
+  document.getElementById("post-text").value = "";
+  document.getElementById("post-image").value = "";
+}
+
+// ---------- LOAD FEED ----------
+function loadPosts() {
+  db.ref('posts').on('value', snapshot => {
     const feed = document.getElementById("feed");
     feed.innerHTML = "";
-    const data = snapshot.val();
-    if (data) {
-        const postsArray = Object.values(data).reverse();
-        postsArray.forEach(post => {
-            feed.innerHTML += `
-                <div class="post">
-                    <h4>${post.name}</h4>
-                    <p>${post.message}</p>
-                    ${post.imageURL ? `<img src="${post.imageURL}" alt="Image">` : ""}
-                    ${post.audioURL ? `<audio controls src="${post.audioURL}"></audio>` : ""}
-                </div>
-            `;
-        });
+    const posts = snapshot.val();
+    if (posts) {
+      const arr = Object.values(posts).sort((a,b)=>b.timestamp-a.timestamp);
+      arr.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "post";
+        div.innerHTML = `
+          <img class="profile" src="${p.userPic}" alt="profile">
+          <div>
+            <strong>${p.userName}</strong>
+            <p>${p.text}</p>
+            ${p.imageURL ? `<img class="post-img" src="${p.imageURL}">` : ""}
+          </div>
+        `;
+        feed.appendChild(div);
+      });
     }
-});
-
-// Add new post
-async function addPost() {
-    const name = document.getElementById("name").value.trim();
-    const message = document.getElementById("message").value.trim();
-    const imageFile = document.getElementById("image").files[0];
-    const audioFile = document.getElementById("audio").files[0];
-
-    if (!name || !message) {
-        alert("Please enter name and message");
-        return;
-    }
-
-    // Upload image if exists
-    let imageURL = "";
-    if (imageFile) {
-        const imageRef = storage.ref().child('images/' + Date.now() + '_' + imageFile.name);
-        await imageRef.put(imageFile);
-        imageURL = await imageRef.getDownloadURL();
-    }
-
-    // Upload audio if exists
-    let audioURL = "";
-    if (audioFile) {
-        const audioRef = storage.ref().child('audio/' + Date.now() + '_' + audioFile.name);
-        await audioRef.put(audioFile);
-        audioURL = await audioRef.getDownloadURL();
-    }
-
-    // Push to public feed
-    feedRef.push({ name, message, imageURL, audioURL });
-
-    // Push to admin inbox
-    adminRef.push({ name, message, imageURL, audioURL, timestamp: Date.now() });
-
-    // Clear inputs
-    document.getElementById("name").value = "";
-    document.getElementById("message").value = "";
-    document.getElementById("image").value = "";
-    document.getElementById("audio").value = "";
+  });
 }
 </script>
-
 </body>
 </html>
