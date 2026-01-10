@@ -7,84 +7,58 @@
 
 <style>
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f0f2f5;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f0f2f5;
 }
 
 header {
-    background: #1877f2;
-    color: white;
-    padding: 12px;
-    font-size: 24px;
-    font-weight: bold;
-    text-align: center;
+  background: #1877f2;
+  color: white;
+  padding: 12px;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
 }
 
-.profile-box, .post-box {
-    background: white;
-    padding: 12px;
-    margin: 10px;
-    border-radius: 8px;
+.box {
+  background: white;
+  padding: 12px;
+  margin: 10px;
+  border-radius: 8px;
 }
 
-.profile-box input, 
-.post-box input, 
-.post-box textarea {
-    width: 100%;
-    margin-bottom: 8px;
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
+input, textarea, select, button {
+  width: 100%;
+  padding: 8px;
+  margin-top: 6px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
 }
 
-.profile-box button, 
-.post-box button, 
-.post-box .record-btn {
-    background: #1877f2;
-    color: white;
-    border: none;
-    padding: 10px;
-    width: 100%;
-    border-radius: 6px;
-    font-size: 16px;
-    margin-top: 4px;
-}
-
-.feed {
-    margin: 10px;
+button {
+  background: #1877f2;
+  color: white;
+  border: none;
 }
 
 .post {
-    background: white;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 10px;
 }
 
 .post img, .post video, .post audio {
-    max-width: 100%;
-    border-radius: 6px;
-    margin-top: 6px;
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 6px;
 }
 
-.post h4 {
-    margin: 0;
-}
-
-.post p {
-    margin-top: 6px;
-}
-
-.delete-btn {
-    background: red;
-    color: white;
-    width: auto;
-    padding: 5px;
-    margin-top: 5px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
 }
 </style>
 </head>
@@ -93,174 +67,97 @@ header {
 
 <header>Zoom<span style="color: orange;">Unta</span></header>
 
-<!-- PROFILE CREATION -->
-<div class="profile-box" id="profileBox">
-    <h3>Create Profile</h3>
-    <input type="text" id="profileName" placeholder="Enter your name">
-    <input type="file" id="profilePic" accept="image/*">
-    <button onclick="createProfile()">Create Profile</button>
+<div class="box">
+  <input id="name" placeholder="Your name">
+  <select id="topic">
+    <option value="">Select topic</option>
+    <option>Education</option>
+    <option>Faith</option>
+    <option>Technology</option>
+    <option>Community</option>
+    <option>Business</option>
+  </select>
+  <textarea id="message" placeholder="What's on your mind?"></textarea>
+  <input type="file" id="media" accept="image/*,video/*">
+  <button onclick="addPost()">Post</button>
 </div>
 
-<!-- POST BOX -->
-<div class="post-box" id="postBox" style="display:none;">
-    <input type="text" id="postName" readonly>
-    <textarea id="postMessage" placeholder="What's on your mind?"></textarea>
-    <input type="file" id="postFile" accept="image/*,video/*">
-    <button onclick="addPost()">Post</button>
-    <button class="record-btn" id="recordBtn">🎤 Record Voice</button>
-</div>
-
-<!-- FEED -->
-<div class="feed" id="feed"></div>
+<div id="feed"></div>
 
 <script>
-let currentProfile = JSON.parse(localStorage.getItem("zoomunta_profile")) || null;
 let posts = JSON.parse(localStorage.getItem("zoomunta_posts")) || [];
 
-// Show post box if profile exists
-function showProfile() {
-    if(currentProfile){
-        document.getElementById("profileBox").style.display = "none";
-        document.getElementById("postBox").style.display = "block";
-        document.getElementById("postName").value = currentProfile.name;
-    }
+function save() {
+  localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
 }
 
-function createProfile(){
-    const name = document.getElementById("profileName").value.trim();
-    const file = document.getElementById("profilePic").files[0];
+function addPost() {
+  const name = nameInput.value.trim();
+  const topic = topicInput.value;
+  const message = messageInput.value.trim();
+  const file = mediaInput.files[0];
 
-    if(!name){
-        alert("Enter your name");
-        return;
-    }
+  if (!name || !topic) {
+    alert("Name and topic are required");
+    return;
+  }
 
-    if(file){
-        const reader = new FileReader();
-        reader.onload = function(e){
-            currentProfile = {name:name, pic:e.target.result};
-            localStorage.setItem("zoomunta_profile", JSON.stringify(currentProfile));
-            showProfile();
-        };
-        reader.readAsDataURL(file);
-    } else {
-        currentProfile = {name:name, pic:null};
-        localStorage.setItem("zoomunta_profile", JSON.stringify(currentProfile));
-        showProfile();
-    }
+  const post = {
+    name, topic, message,
+    image: null,
+    video: null,
+    echoes: 0,
+    supports: 0
+  };
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      if (file.type.startsWith("video")) post.video = e.target.result;
+      else post.image = e.target.result;
+      posts.unshift(post);
+      save(); render();
+    };
+    reader.readAsDataURL(file);
+  } else {
+    posts.unshift(post);
+    save(); render();
+  }
+
+  messageInput.value = "";
+  mediaInput.value = "";
 }
 
-showProfile();
-
-// ===== POSTS MANAGEMENT =====
-function showPosts(){
-    const feed = document.getElementById("feed");
-    feed.innerHTML = "";
-    posts.slice().reverse().forEach((post, idxReverse) => {
-        const index = posts.length - 1 - idxReverse; // correct index for deletion
-        const postDiv = document.createElement("div");
-        postDiv.className = "post";
-
-        postDiv.innerHTML = `
-            <h4>${post.name}</h4>
-            ${post.pic ? `<img src="${post.pic}">` : ''}
-            ${post.video ? `<video controls src="${post.video}"></video>` : ''}
-            ${post.message ? `<p>${post.message}</p>` : ''}
-            ${post.audio ? `<audio controls src="${post.audio}"></audio>` : ''}
-            <button class="delete-btn" onclick="deletePost(${index})">Delete</button>
-        `;
-        feed.appendChild(postDiv);
-    });
+function render() {
+  feed.innerHTML = "";
+  posts.forEach((p, i) => {
+    feed.innerHTML += `
+      <div class="post">
+        <b>${p.name}</b> · <small>${p.topic}</small>
+        <p>${p.message || ""}</p>
+        ${p.image ? `<img src="${p.image}">` : ""}
+        ${p.video ? `<video controls src="${p.video}"></video>` : ""}
+        <div class="actions">
+          <button onclick="echo(${i})">🔊 Echo (${p.echoes})</button>
+          <button onclick="support(${i})">🤝 Support (${p.supports})</button>
+          <button onclick="del(${i})">🗑</button>
+        </div>
+      </div>
+    `;
+  });
 }
 
-function addPost(){
-    const message = document.getElementById("postMessage").value.trim();
-    const file = document.getElementById("postFile").files[0];
+function echo(i){ posts[i].echoes++; save(); render(); }
+function support(i){ posts[i].supports++; save(); render(); }
+function del(i){ posts.splice(i,1); save(); render(); }
 
-    if(!message && !file){
-        alert("Enter a message or select a file");
-        return;
-    }
+const nameInput = document.getElementById("name");
+const topicInput = document.getElementById("topic");
+const messageInput = document.getElementById("message");
+const mediaInput = document.getElementById("media");
+const feed = document.getElementById("feed");
 
-    if(file){
-        const reader = new FileReader();
-        reader.onload = function(e){
-            const newPost = {
-                name: currentProfile.name,
-                message: message || null,
-                pic: file.type.startsWith('image') ? e.target.result : null,
-                video: file.type.startsWith('video') ? e.target.result : null,
-                audio: null
-            };
-            posts.push(newPost);
-            localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
-            showPosts();
-            document.getElementById("postMessage").value = "";
-            document.getElementById("postFile").value = "";
-        };
-        reader.readAsDataURL(file);
-    } else {
-        const newPost = {
-            name: currentProfile.name,
-            pic: null,
-            message: message,
-            video: null,
-            audio: null
-        };
-        posts.push(newPost);
-        localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
-        showPosts();
-        document.getElementById("postMessage").value = "";
-    }
-}
-
-// ===== DELETE POST =====
-function deletePost(index){
-    if(confirm("Are you sure you want to delete this post?")){
-        posts.splice(index, 1);
-        localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
-        showPosts();
-    }
-}
-
-// ===== VOICE RECORDER =====
-let mediaRecorder;
-let audioChunks = [];
-
-const recordBtn = document.getElementById("recordBtn");
-recordBtn.onclick = async function() {
-    if(recordBtn.innerText === "🎤 Record Voice"){
-        if(!navigator.mediaDevices) return alert("Your browser does not support recording");
-        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.start();
-        audioChunks = [];
-        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, {type:'audio/mp3'});
-            const reader = new FileReader();
-            reader.onload = e => {
-                const newPost = {
-                    name: currentProfile.name,
-                    pic: null,
-                    message: null,
-                    video: null,
-                    audio: e.target.result
-                };
-                posts.push(newPost);
-                localStorage.setItem("zoomunta_posts", JSON.stringify(posts));
-                showPosts();
-            };
-            reader.readAsDataURL(audioBlob);
-        };
-        recordBtn.innerText = "⏹ Stop Recording";
-    } else {
-        mediaRecorder.stop();
-        recordBtn.innerText = "🎤 Record Voice";
-    }
-};
-
-showPosts();
+render();
 </script>
 
 </body>
