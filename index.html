@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>ZoomUnta</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body {
     margin: 0;
@@ -14,13 +13,13 @@ body {
 
 /* HEADER */
 header {
-    text-align: center;
-    font-size: 28px;
-    font-weight: bold;
+    background: #1877f2;
+    color: white;
     padding: 12px;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
 }
-header span.zoom { color: blue; }
-header span.unta { color: orange; }
 
 /* POST BOX */
 .post-box {
@@ -29,16 +28,16 @@ header span.unta { color: orange; }
     margin: 10px;
     border-radius: 8px;
 }
+
 .post-box input,
-.post-box textarea,
-.post-box input[type="file"],
-.post-box select {
+.post-box textarea {
     width: 100%;
     margin-bottom: 8px;
     padding: 8px;
     border-radius: 6px;
     border: 1px solid #ccc;
 }
+
 .post-box button {
     background: #1877f2;
     color: white;
@@ -53,50 +52,50 @@ header span.unta { color: orange; }
 .feed {
     margin: 10px;
 }
+
 .post {
     background: white;
     padding: 12px;
     border-radius: 8px;
     margin-bottom: 10px;
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
 }
-.post img {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-.post-content h4 {
+
+.post h4 {
     margin: 0;
 }
-.post-content small {
-    color: #555;
-}
-.post-topic {
-    font-size: 12px;
-    font-weight: bold;
-    color: #1877f2;
-    margin-bottom: 4px;
-}
-.post-actions {
+
+.post p {
     margin-top: 6px;
 }
-.post-actions button {
-    margin-right: 6px;
-    background: transparent;
-    border: none;
-    color: #1877f2;
-    cursor: pointer;
-    font-weight: bold;
+
+.post img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin-top: 6px;
 }
-.post-actions span {
-    margin-right: 12px;
+
+audio {
+    margin-top: 6px;
+    width: 100%;
 }
 </style>
+</head>
 
-<!-- Firebase -->
+<body>
+
+<header>ZoomUnta</header>
+
+<div class="post-box">
+    <input type="text" id="name" placeholder="Your name">
+    <textarea id="message" placeholder="What's on your mind?"></textarea>
+    <input type="file" id="image" accept="image/*">
+    <input type="file" id="audio" accept="audio/*">
+    <button onclick="addPost()">Post</button>
+</div>
+
+<div class="feed" id="feed"></div>
+
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js"></script>
@@ -114,99 +113,70 @@ const firebaseConfig = {
 const app = firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const storage = firebase.storage();
+
+// References
 const feedRef = database.ref('posts');
-</script>
-</head>
+const adminRef = database.ref('adminMessages');
 
-<body>
+// Display posts in real-time
+feedRef.on('value', snapshot => {
+    const feed = document.getElementById("feed");
+    feed.innerHTML = "";
+    const data = snapshot.val();
+    if (data) {
+        const postsArray = Object.values(data).reverse();
+        postsArray.forEach(post => {
+            feed.innerHTML += `
+                <div class="post">
+                    <h4>${post.name}</h4>
+                    <p>${post.message}</p>
+                    ${post.imageURL ? `<img src="${post.imageURL}" alt="Image">` : ""}
+                    ${post.audioURL ? `<audio controls src="${post.audioURL}"></audio>` : ""}
+                </div>
+            `;
+        });
+    }
+});
 
-<header><span class="zoom">Zoom</span><span class="unta">Unta</span></header>
-
-<div class="post-box">
-    <input type="text" id="name" placeholder="Your name">
-    <textarea id="message" placeholder="What's on your mind?"></textarea>
-    <select id="topic">
-        <option value="">Select a topic</option>
-        <option value="General">General</option>
-        <option value="News">News</option>
-        <option value="Entertainment">Entertainment</option>
-        <option value="Sports">Sports</option>
-        <option value="Technology">Technology</option>
-        <option value="Other">Other</option>
-    </select>
-    <input type="file" id="profilePic" accept="image/*">
-    <button onclick="addPost()">Post</button>
-</div>
-
-<div class="feed" id="feed"></div>
-
-<script>
-function addPost() {
+// Add new post
+async function addPost() {
     const name = document.getElementById("name").value.trim();
     const message = document.getElementById("message").value.trim();
-    const topic = document.getElementById("topic").value;
-    const file = document.getElementById("profilePic").files[0];
+    const imageFile = document.getElementById("image").files[0];
+    const audioFile = document.getElementById("audio").files[0];
 
     if (!name || !message) {
         alert("Please enter name and message");
         return;
     }
 
-    const time = new Date().toLocaleString();
-
-    if (file) {
-        const storageRef = storage.ref('profilePics/' + Date.now() + '_' + file.name);
-        storageRef.put(file).then(snapshot => {
-            snapshot.ref.getDownloadURL().then(url => {
-                feedRef.push({ name, message, topic, profilePic: url, time, likes: 0, echoes: 0 });
-            });
-        });
-    } else {
-        feedRef.push({ name, message, topic, time, likes: 0, echoes: 0 });
+    // Upload image if exists
+    let imageURL = "";
+    if (imageFile) {
+        const imageRef = storage.ref().child('images/' + Date.now() + '_' + imageFile.name);
+        await imageRef.put(imageFile);
+        imageURL = await imageRef.getDownloadURL();
     }
 
+    // Upload audio if exists
+    let audioURL = "";
+    if (audioFile) {
+        const audioRef = storage.ref().child('audio/' + Date.now() + '_' + audioFile.name);
+        await audioRef.put(audioFile);
+        audioURL = await audioRef.getDownloadURL();
+    }
+
+    // Push to public feed
+    feedRef.push({ name, message, imageURL, audioURL });
+
+    // Push to admin inbox
+    adminRef.push({ name, message, imageURL, audioURL, timestamp: Date.now() });
+
+    // Clear inputs
     document.getElementById("name").value = "";
     document.getElementById("message").value = "";
-    document.getElementById("topic").value = "";
-    document.getElementById("profilePic").value = "";
-}
-
-// Listen to posts in real-time
-feedRef.on('value', snapshot => {
-    const feed = document.getElementById("feed");
-    feed.innerHTML = "";
-    const data = snapshot.val();
-    if (data) {
-        const postsArray = Object.entries(data).reverse(); // [key, value] for update
-        postsArray.forEach(([key, post]) => {
-            const postDiv = document.createElement("div");
-            postDiv.className = "post";
-            postDiv.innerHTML = `
-                <img src="${post.profilePic || 'https://via.placeholder.com/50'}" alt="Profile">
-                <div class="post-content">
-                    ${post.topic ? `<div class="post-topic">${post.topic}</div>` : ''}
-                    <h4>${post.name}</h4>
-                    <p>${post.message}</p>
-                    <small>${post.time}</small>
-                    <div class="post-actions">
-                        <button onclick="likePost('${key}', ${post.likes})">Like</button>
-                        <span>${post.likes} Likes</span>
-                        <button onclick="echoPost('${key}', ${post.echoes})">Echo</button>
-                        <span>${post.echoes} Echoes</span>
-                    </div>
-                </div>
-            `;
-            feed.appendChild(postDiv);
-        });
-    }
-});
-
-function likePost(key, currentLikes) {
-    feedRef.child(key).update({ likes: currentLikes + 1 });
-}
-
-function echoPost(key, currentEchoes) {
-    feedRef.child(key).update({ echoes: currentEchoes + 1 });
+    document.getElementById("image").value = "";
+    document.getElementById("audio").value = "";
 }
 </script>
 
