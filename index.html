@@ -2,125 +2,196 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ZoomUnta</title>
+<title>ZoomUnta Live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 
 <style>
-body { font-family: Arial; background:#f0f2f5; margin:0; }
-header { background:#1877f2; color:white; padding:12px; text-align:center; font-size:22px; }
-.box { background:white; padding:12px; margin:10px; border-radius:8px; }
-input, textarea, button { width:100%; margin-top:6px; padding:8px; }
-button { background:#1877f2; color:white; border:none; border-radius:6px; }
-.post { background:white; padding:10px; margin:10px; border-radius:8px; }
-.post img, .post video { max-width:100%; margin-top:6px; }
+body { font-family: Arial; margin:0; background:#f0f2f5; }
+header { background:#1877f2; color:white; padding:12px; text-align:center; font-size:24px; font-weight:bold; }
+.profile-box, .post-box, .post { background:white; padding:12px; margin:10px; border-radius:8px; }
+.profile-box input, .post-box input, .post-box textarea { width:100%; margin-bottom:8px; padding:8px; border-radius:6px; border:1px solid #ccc; }
+.post-box button { background:#1877f2; color:white; border:none; padding:10px; width:100%; border-radius:6px; margin-top:4px; font-size:16px; }
+.post img, .post video, .post audio { max-width:100%; border-radius:6px; margin-top:6px; }
 </style>
 </head>
-
 <body>
 
 <header>Zoom<span style="color:orange;">Unta</span></header>
 
-<div class="box" id="profileBox">
+<!-- PROFILE -->
+<div class="profile-box" id="profileBox">
   <h3>Create Profile</h3>
-  <input id="profileName" placeholder="Your name">
+  <input type="text" id="profileName" placeholder="Enter your name">
+  <input type="file" id="profilePic">
   <button onclick="createProfile()">Create Profile</button>
 </div>
 
-<div class="box" id="postBox" style="display:none;">
-  <input id="postName" readonly>
-  <textarea id="postText" placeholder="What's on your mind?"></textarea>
+<!-- POST -->
+<div class="post-box" id="postBox" style="display:none;">
+  <input type="text" id="postName" readonly>
+  <textarea id="postMessage" placeholder="What's on your mind?"></textarea>
   <input type="file" id="postImage" accept="image/*">
   <input type="file" id="postVideo" accept="video/*">
   <button onclick="addPost()">Post</button>
+  <button id="recordBtn">🎤 Record Voice</button>
 </div>
 
 <div id="feed"></div>
 
 <script>
-const supabase = window.supabase.createClient(
-  "https://krawfxijpbqgdsotyipf.supabase.co",
-  "sb_publishable_J6McZSVzeoAcMXnP8iys0A_0xIf0fUP"
-);
+const supabaseUrl = "https://krawfxijpbqgdsotyipf.supabase.co";
+const supabaseKey = "sb_publishable_J6McZSVzeoAcMXnP8iys0A_0xIf0fUP";
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-let profile = JSON.parse(localStorage.getItem("zoomunta_profile"));
+let currentProfile = JSON.parse(localStorage.getItem("zoomunta_profile")) || null;
+let posts = [];
 
-if(profile) showApp();
+function showProfile() {
+  if(currentProfile){
+    document.getElementById("profileBox").style.display = "none";
+    document.getElementById("postBox").style.display = "block";
+    document.getElementById("postName").value = currentProfile.name;
+    loadPosts();
+    subscribeRealtime();
+  }
+}
 
 async function createProfile(){
   const name = document.getElementById("profileName").value.trim();
+  const file = document.getElementById("profilePic").files[0];
   if(!name) return alert("Enter your name");
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .insert({ name })
-    .select()
-    .single();
+  let avatar_url = null;
+  if(file){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      avatar_url = e.target.result;
+      await saveProfile(name, avatar_url);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    await saveProfile(name, null);
+  }
+}
 
+async function saveProfile(name, avatar_url){
+  const { data, error } = await supabase.from("profiles").insert([{name, avatar_url, created_at: new Date()}]).select().single();
   if(error) return alert(error.message);
-
+  currentProfile = data;
   localStorage.setItem("zoomunta_profile", JSON.stringify(data));
-  profile = data;
-  showApp();
+  showProfile();
 }
 
-function showApp(){
-  document.getElementById("profileBox").style.display="none";
-  document.getElementById("postBox").style.display="block";
-  document.getElementById("postName").value = profile.name;
-  loadPosts();
-}
-
+// POSTS
 async function addPost(){
-  const text = document.getElementById("postText").value;
-  const image = document.getElementById("postImage").files[0];
-  const video = document.getElementById("postVideo").files[0];
+  const message = document.getElementById("postMessage").value.trim();
+  const imageFile = document.getElementById("postImage").files[0];
+  const videoFile = document.getElementById("postVideo").files[0];
+
+  if(!message && !imageFile && !videoFile) return alert("Write or attach something");
 
   let image_url=null, video_url=null;
 
-  if(image) image_url = await toBase64(image);
-  if(video) video_url = await toBase64(video);
+  if(imageFile){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      image_url = e.target.result;
+      await savePost(message, image_url, null);
+    };
+    reader.readAsDataURL(imageFile);
+  } else if(videoFile){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      video_url = e.target.result;
+      await savePost(message, null, video_url);
+    };
+    reader.readAsDataURL(videoFile);
+  } else {
+    await savePost(message, null, null);
+  }
+}
 
-  await supabase.from("posts").insert({
-    profile_id: profile.id,
-    message: text,
+async function savePost(message, image_url, video_url){
+  const { error } = await supabase.from("posts").insert([{
+    profile_id: currentProfile.id,
+    message,
     image_url,
-    video_url
-  });
+    video_url,
+    audio_url: null,
+    created_at: new Date()
+  }]);
+  if(error) return alert(error.message);
 
-  document.getElementById("postText").value="";
+  document.getElementById("postMessage").value="";
   document.getElementById("postImage").value="";
   document.getElementById("postVideo").value="";
-  loadPosts();
 }
 
+// LOAD POSTS
 async function loadPosts(){
-  const { data } = await supabase
-    .from("posts")
-    .select("message,image_url,video_url,created_at")
-    .order("created_at",{ascending:false});
+  const { data } = await supabase.from("posts").select("*").order("created_at",{ascending:false});
+  posts = data || [];
+  renderPosts();
+}
 
+function renderPosts(){
   const feed = document.getElementById("feed");
-  feed.innerHTML="";
-
-  data.forEach(p=>{
-    feed.innerHTML += `
-      <div class="post">
-        ${p.message?`<p>${p.message}</p>`:""}
-        ${p.image_url?`<img src="${p.image_url}">`:""}
-        ${p.video_url?`<video controls src="${p.video_url}"></video>`:""}
-      </div>`;
+  feed.innerHTML = "";
+  posts.forEach(post => {
+    const div = document.createElement("div");
+    div.className="post";
+    div.innerHTML=`
+      <h4>${currentProfile.name}</h4>
+      ${post.message? `<p>${post.message}</p>`:``}
+      ${post.image_url? `<img src="${post.image_url}">`:``}
+      ${post.video_url? `<video controls src="${post.video_url}"></video>`:``}
+      ${post.audio_url? `<audio controls src="${post.audio_url}"></audio>`:``}
+    `;
+    feed.appendChild(div);
   });
 }
 
-function toBase64(file){
-  return new Promise(res=>{
-    const r=new FileReader();
-    r.onload=()=>res(r.result);
-    r.readAsDataURL(file);
-  });
+// REALTIME
+function subscribeRealtime(){
+  supabase.from("posts").on("INSERT", payload=>{
+    posts.unshift(payload.new);
+    renderPosts();
+  }).subscribe();
 }
+
+// VOICE RECORDING
+let mediaRecorder, audioChunks=[];
+document.getElementById("recordBtn").onclick=async function(){
+  if(this.innerText==="🎤 Record Voice"){
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks=[];
+    mediaRecorder.start();
+    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+    mediaRecorder.onstop=async ()=>{
+      const blob = new Blob(audioChunks,{type:"audio/mp3"});
+      const reader = new FileReader();
+      reader.onload=async e=>{
+        await supabase.from("posts").insert([{
+          profile_id:currentProfile.id,
+          message:null,
+          image_url:null,
+          video_url:null,
+          audio_url:e.target.result,
+          created_at:new Date()
+        }]);
+      };
+      reader.readAsDataURL(blob);
+    };
+    this.innerText="⏹ Stop Recording";
+  } else {
+    mediaRecorder.stop();
+    this.innerText="🎤 Record Voice";
+  }
+}
+
+showProfile();
 </script>
 
 </body>
