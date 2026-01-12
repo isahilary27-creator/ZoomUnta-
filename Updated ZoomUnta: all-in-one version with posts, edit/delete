@@ -1,107 +1,210 @@
-# ZoomUnta-
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>ZoomUnta</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 15px;
-    }
-    h1 {
-      text-align: center;
-    }
-    input, textarea, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      box-sizing: border-box;
-    }
-    button {
-      background: #000;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-    }
-    .post {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 15px;
-    }
-  </style>
-</head>
+<meta charset="UTF-8">
+<title>ZoomUnta Live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+
+<style>
+body { font-family: Arial; margin:0; background:#f0f2f5; }
+header { background:#1877f2; color:white; padding:12px; text-align:center; font-size:24px; font-weight:bold; }
+.profile-box, .post-box { background:white; padding:12px; margin:10px; border-radius:8px; }
+.profile-box input, .post-box input, .post-box textarea { width:100%; margin-bottom:8px; padding:8px; border-radius:6px; border:1px solid #ccc; }
+.post-box button { background:#1877f2; color:white; border:none; padding:10px; width:100%; border-radius:6px; margin-top:4px; font-size:16px; }
+.feed { margin:10px; }
+.post { background:white; padding:12px; border-radius:8px; margin-bottom:10px; }
+.post h4 { margin:0; }
+.post p { margin-top:6px; }
+.post img, .post video, .post audio { max-width:100%; border-radius:6px; margin-top:6px; }
+.interactions { margin-top:8px; }
+.interactions button { margin-right:8px; }
+.reply-box { margin-top:8px; }
+.reply-box input { width:80%; }
+.reply-box button { width:18%; }
+</style>
+</head>
 <body>
 
-<h1>
-  <span style="color: blue;">Zoom</span><span style="color: orange;">Unta</span>
-</h1>
+<header>Zoom<span style="color:orange;">Unta</span></header>
 
-<input id="username" placeholder="Your name">
-<textarea id="postText" placeholder="Write something..."></textarea>
-<button onclick="addPost()">Post</button>
+<!-- PROFILE -->
+<div class="profile-box" id="profileBox">
+  <h3>Create Profile</h3>
+  <input type="text" id="profileName" placeholder="Enter your name">
+  <input type="file" id="profilePic">
+  <button onclick="createProfile()">Create Profile</button>
+</div>
 
-<div id="feed"></div>
+<!-- POST -->
+<div class="post-box" id="postBox" style="display:none;">
+  <input type="text" id="postName" readonly>
+  <textarea id="postMessage" placeholder="What's on your mind?"></textarea>
+  <input type="file" id="postImage" accept="image/*">
+  <input type="file" id="postVideo" accept="video/*">
+  <button onclick="addPost()">Post</button>
+  <button id="recordBtn">🎤 Record Voice</button>
+</div>
 
-<!-- Firebase App (the core Firebase SDK) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js"></script>
+<div class="feed" id="feed"></div>
 
 <script>
-  // Your Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyBQXx4AgjmjFhWTQEGZFJ8gyjhrGG36T04",
-    authDomain: "zoomunta.firebaseapp.com",
-    projectId: "zoomunta",
-    storageBucket: "zoomunta.appspot.com",
-    messagingSenderId: "490604667032",
-    appId: "1:490604667032:web:088173f78346086d14f0ed"
-  };
+const supabaseUrl = "https://krawfxijpbqgdsotyipf.supabase.co";
+const supabaseKey = "sb_publishable_J6McZSVzeoAcMXnP8iys0A_0xIf0fUP";
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-  // Initialize Firebase
-  const app = firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+let currentProfile = JSON.parse(localStorage.getItem("zoomunta_profile")) || null;
+let posts = [];
 
-  // Load existing posts from Firestore
-  const feedDiv = document.getElementById("feed");
-
-  db.collection("posts").orderBy("timestamp", "desc").get().then(snapshot => {
-    snapshot.forEach(doc => {
-      const post = doc.data();
-      const div = document.createElement("div");
-      div.className = "post";
-      div.innerHTML = `<strong>${post.name}</strong><p>${post.text}</p>`;
-      feedDiv.appendChild(div);
-    });
-  });
-
-  function addPost() {
-    const name = document.getElementById("username").value.trim();
-    const text = document.getElementById("postText").value.trim();
-
-    if (name === "" || text === "") {
-      alert("Please enter name and post");
-      return;
-    }
-
-    const postData = { 
-      name: name, 
-      text: text, 
-      timestamp: firebase.firestore.FieldValue.serverTimestamp() 
-    };
-
-    db.collection("posts").add(postData).then(() => {
-      const div = document.createElement("div");
-      div.className = "post";
-      div.innerHTML = `<strong>${name}</strong><p>${text}</p>`;
-      feedDiv.prepend(div);
-      document.getElementById("postText").value = "";
-    }).catch(err => {
-      console.error("Error adding post: ", err);
-    });
+function showProfile() {
+  if(currentProfile){
+    document.getElementById("profileBox").style.display = "none";
+    document.getElementById("postBox").style.display = "block";
+    document.getElementById("postName").value = currentProfile.name;
+    loadPosts();
+    subscribeRealtime();
   }
+}
+
+async function createProfile(){
+  const name = document.getElementById("profileName").value.trim();
+  const file = document.getElementById("profilePic").files[0];
+  if(!name) return alert("Enter your name");
+
+  let avatar_url = null;
+  if(file){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      avatar_url = e.target.result;
+      await saveProfile(name, avatar_url);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    await saveProfile(name, null);
+  }
+}
+
+async function saveProfile(name, avatar_url){
+  const { data, error } = await supabase.from("profiles").insert([{name, avatar_url, created_at: new Date()}]).select().single();
+  if(error) return alert(error.message);
+  currentProfile = data;
+  localStorage.setItem("zoomunta_profile", JSON.stringify(data));
+  showProfile();
+}
+
+// ===== POSTS =====
+async function addPost(){
+  const message = document.getElementById("postMessage").value.trim();
+  const imageFile = document.getElementById("postImage").files[0];
+  const videoFile = document.getElementById("postVideo").files[0];
+
+  if(!message && !imageFile && !videoFile) return alert("Write or attach something");
+
+  let image_url=null, video_url=null;
+
+  if(imageFile){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      image_url = e.target.result;
+      await savePost(message, image_url, null);
+    };
+    reader.readAsDataURL(imageFile);
+  } else if(videoFile){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      video_url = e.target.result;
+      await savePost(message, null, video_url);
+    };
+    reader.readAsDataURL(videoFile);
+  } else {
+    await savePost(message, null, null);
+  }
+}
+
+async function savePost(message, image_url, video_url){
+  const { data, error } = await supabase.from("posts").insert([{
+    profile_id: currentProfile.id,
+    message,
+    image_url,
+    video_url,
+    audio_url: null,
+    created_at: new Date()
+  }]);
+  if(error) return alert(error.message);
+  document.getElementById("postMessage").value="";
+  document.getElementById("postImage").value="";
+  document.getElementById("postVideo").value="";
+}
+
+// ===== LOAD POSTS =====
+async function loadPosts(){
+  const { data, error } = await supabase.from("posts").select("*").order("created_at",{ascending:false});
+  if(error) return console.log(error.message);
+  posts = data;
+  renderPosts();
+}
+
+function renderPosts(){
+  const feed = document.getElementById("feed");
+  feed.innerHTML = "";
+  posts.forEach(post => {
+    const div = document.createElement("div");
+    div.className="post";
+    div.innerHTML=`
+      <h4>${currentProfile.name}</h4>
+      ${post.message? `<p>${post.message}</p>`:``}
+      ${post.image_url? `<img src="${post.image_url}">`:``}
+      ${post.video_url? `<video controls src="${post.video_url}"></video>`:``}
+      ${post.audio_url? `<audio controls src="${post.audio_url}"></audio>`:``}
+    `;
+    feed.appendChild(div);
+  });
+}
+
+// ===== REALTIME SUBSCRIBE =====
+function subscribeRealtime(){
+  supabase.from("posts").on("INSERT", payload=>{
+    posts.unshift(payload.new);
+    renderPosts();
+  }).subscribe();
+}
+
+// ===== VOICE RECORDER =====
+let mediaRecorder, audioChunks=[];
+const recordBtn=document.getElementById("recordBtn");
+recordBtn.onclick=async function(){
+  if(recordBtn.innerText==="🎤 Record Voice"){
+    if(!navigator.mediaDevices) return alert("Browser not supported");
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    audioChunks=[];
+    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+    mediaRecorder.onstop=async ()=>{
+      const blob = new Blob(audioChunks,{type:"audio/mp3"});
+      const reader = new FileReader();
+      reader.onload=async e=>{
+        await supabase.from("posts").insert([{
+          profile_id:currentProfile.id,
+          message:null,
+          image_url:null,
+          video_url:null,
+          audio_url:e.target.result,
+          created_at:new Date()
+        }]);
+      };
+      reader.readAsDataURL(blob);
+    };
+    recordBtn.innerText="⏹ Stop Recording";
+  } else {
+    mediaRecorder.stop();
+    recordBtn.innerText="🎤 Record Voice";
+  }
+}
+
+showProfile();
 </script>
 
 </body>
